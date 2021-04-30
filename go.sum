@@ -18,6 +18,8 @@ github.com/envoyproxy/go-control-plane v0.9.9-0.20201210154907-fd9021fe5dad/go.m
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/fukurin00/provider_api v1.0.0 h1:LrOX8OSPu5BRSDYqM7jegEY/VLIjGpNG+OccmGwTrN8=
 github.com/fukurin00/provider_api v1.0.0/go.mod h1:9uPjdccMKIacvbbaVNb7m+EsaD1jlA+L/Ti8UPpt/hA=
+github.com/fukurin00/provider_api v1.0.1 h1:lCdn405bGytbW2NT7Dcqm2/VxOh+I5fApJ32zrE7BQE=
+github.com/fukurin00/provider_api v1.0.1/go.mod h1:9uPjdccMKIacvbbaVNb7m+EsaD1jlA+L/Ti8UPpt/hA=
 github.com/go-ole/go-ole v1.2.4/go.mod h1:XCwSNxSkXRo4vlyPy93sltvi/qJq0jqQhjqQNIwKuxM=
 github.com/go-ole/go-ole v1.2.5 h1:t4MGB5xEDZvXI+0rMjjsfBsD7yAgp/s9ZDkL1JndXwY=
 github.com/go-ole/go-ole v1.2.5/go.mod h1:pprOEPIfldk/42T2oK7lQ4v4JSDwmV0As9GaiUsvbm0=
@@ -57,6 +59,10 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/synerex/proto_cav v0.0.0-20210422095015-d3c33425c1e0 h1:tYqYBumVbrcPohCqboQ5mPNcv5J2utraVwRj/m75vEo=
 github.com/synerex/proto_cav v0.0.0-20210422095015-d3c33425c1e0/go.mod h1:H4sMxIJvHTpeALtvZiS+yDgWEHyvx5SU7JZxQz1DDK8=
+github.com/synerex/proto_cav v0.0.0-20210424164201-1350212e1b7e h1:ExX/wa8NDxVLOOQJuG+kn3rsvrLpwlnlEMnpm6DwCqw=
+github.com/synerex/proto_cav v0.0.0-20210424164201-1350212e1b7e/go.mod h1:H4sMxIJvHTpeALtvZiS+yDgWEHyvx5SU7JZxQz1DDK8=
+github.com/synerex/proto_cav v0.0.3 h1:7xeHeKdEULrCNhYMRM0n4zdwbV7do1e6dhNdSvQ7gag=
+github.com/synerex/proto_cav v0.0.3/go.mod h1:H4sMxIJvHTpeALtvZiS+yDgWEHyvx5SU7JZxQz1DDK8=
 github.com/synerex/proto_json v0.0.1/go.mod h1:aUvnuTMwolfhJakexaca1lmOVAhQuScR2SOemD9j1NQ=
 github.com/synerex/proto_mqtt v0.1.2 h1:8pkzDum9vjJ+XYREo7KUahrhAufAEK8cjPQG1APt9F4=
 github.com/synerex/proto_mqtt v0.1.2/go.mod h1:LaUwcISaQ+j6nXUaa08io5BQdxf9Gw0NLSBDMijnxqk=

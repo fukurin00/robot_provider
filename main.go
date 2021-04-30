@@ -9,10 +9,11 @@ import (
 	"sync"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	synerex "github.com/fukurin00/provider_api/src/api"
+	synerex "github.com/fukurin00/provider_api"
 	mqttApi "github.com/fukurin00/provider_robot_node/mqtt"
 	msg "github.com/fukurin00/provider_robot_node/msg"
 	robot "github.com/fukurin00/provider_robot_node/robot"
+
 	sxmqtt "github.com/synerex/proto_mqtt"
 	api "github.com/synerex/synerex_api"
 	sxutil "github.com/synerex/synerex_sxutil"
@@ -25,7 +26,8 @@ var (
 	client  *mqtt.Client
 	robotID *int = flag.Int("robotID", 1, "robotID")
 
-	robotList map[int]*robot.RobotStatus
+	robotList     map[int]*robot.RobotStatus
+	synerexConfig *synerex.SynerexConfig
 )
 
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
@@ -51,18 +53,29 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	if err == nil {
 		if strings.HasPrefix(rcd.Topic, "robot/") {
 			if strings.HasPrefix(rcd.Topic, "robot/dest") {
-				// var p msg.Path
-				// var id int
+				var p msg.ROS_PoseStamped
+				var id int
 
-				// err := json.Unmarshal(rcd.Record, &p)
-				// if err != nil {
-				// 	log.Print(err)
-				// }
-				// fmt.Sscanf(rcd.Topic, "robot/path/%d", &id)
+				err := json.Unmarshal(rcd.Record, &p)
+				if err != nil {
+					log.Print(err)
+				}
+				fmt.Sscanf(rcd.Topic, "robot/dest/%d", &id)
 
-				// if rob, ok := robotList[id]; ok {
-				// 	rob.UpdatePath(rcd)
-				// }
+				if rob, ok := robotList[id]; ok {
+					d := rob.NewDestRequest(robot.CavPoint(p), p.Header.Stamp)
+					out, err := proto.Marshal(d)
+					if err != nil {
+						log.Print(err)
+					}
+					_, err = synerexConfig.NotifySupply(out, synerex.ROUTING_SERVICE, "DestDemand")
+					if err != nil {
+						log.Print(err)
+						synerexConfig.ReconnectClient(clt)
+					}
+				} else {
+					log.Printf("robot %d not exist", id)
+				}
 			} else if strings.HasPrefix(rcd.Topic, "robot/pose") {
 				var pose msg.ROS_PoseStamped
 				var id int
@@ -72,11 +85,19 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 					log.Print(err)
 				}
 				fmt.Sscanf(rcd.Topic, "robot/pose/%d", &id)
-				if rob, ok := robotList[id]; ok {
-					rob.UpdatePose(rcd)
-				} else {
+				if _, ok := robotList[id]; !ok {
 					robotList[id] = robot.NewRobot(id)
 				}
+				// pmsg := robotList[id].NewPoseMessage(pose)
+				// out, err = proto.Marshal(pmsg)
+				// if err != nil {
+				// 	log.Print(err)
+				// }
+				// _, err = synerexConfig.NotifySupply(out, synerex.MQTT_GATEWAY_SVC, "PoseSupply")
+				// if err != nil {
+				// 	log.Print(err)
+				// 	synerexConfig.ReconnectClient(clt)
+				// }
 			}
 		}
 	}
@@ -87,13 +108,13 @@ func main() {
 	wg := sync.WaitGroup{}
 	flag.Parse()
 	client = mqttApi.ConnectMqttBroker(*broker, *port, connectHandler, connectLostHandler, messagePubHandler)
-	channels := []uint32{synerex.MQTT_GATEWAY_SVC}
-	names := []string{"ROBOT_MQTT"}
-	s, err := synerex.NewSynerexConfig("RobotNode", channels, names)
+	channels := []uint32{synerex.MQTT_GATEWAY_SVC, synerex.ROUTING_SERVICE}
+	names := []string{"ROBOT_MQTT", "ROBOT_ROUTING"}
+	synerexConfig, err := synerex.NewSynerexConfig("RobotNode", channels, names)
 	if err != nil {
 		log.Print(err)
 	}
-	s.SubscribeSupply(synerex.MQTT_GATEWAY_SVC, mqttCallback)
+	synerexConfig.SubscribeSupply(synerex.MQTT_GATEWAY_SVC, mqttCallback)
 	wg.Add(1)
 	wg.Wait()
 }

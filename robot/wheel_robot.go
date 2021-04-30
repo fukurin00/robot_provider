@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	msg "github.com/fukurin00/provider_robot_node/msg"
 	cav "github.com/synerex/proto_cav"
 	sxmqtt "github.com/synerex/proto_mqtt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var ()
@@ -30,6 +32,7 @@ type RobotStatus struct {
 	RotVelocity float64 //velocity of rotation
 
 	RequestSeq int64
+	Update     time.Time
 }
 
 func NewRobot(id int) *RobotStatus {
@@ -38,19 +41,21 @@ func NewRobot(id int) *RobotStatus {
 	r.Ros.ID = id
 	r.Ros.RobotName = fmt.Sprintf("robot%d", id)
 	r.Ros.FrameID = fmt.Sprintf("map/%s", r.Ros.RobotName)
+	r.Ros.Orgin = new(cav.Point)
 	r.Ros.Orgin.X = 0
 	r.Ros.Orgin.Y = 0
 	r.Radius = 1
 	r.Velocity = 1.0
 	r.RotVelocity = 1.0
+	r.Update = time.Now()
 	return r
 }
 
-func CavStamp(stamp msg.TimeStamp) *cav.Stamp {
-	s := new(cav.Stamp)
-	s.Secs = uint64(stamp.Secs)
-	s.Nsecs = uint64(stamp.Nsecs)
-	return s
+func CavPoint(poseStamp msg.ROS_PoseStamped) *cav.Point {
+	p := new(cav.Point)
+	p.X = float32(poseStamp.Pose.Position.X)
+	p.Y = float32(poseStamp.Pose.Position.Y)
+	return p
 }
 
 func (r *RobotStatus) NewDestRequest(dest *cav.Point, stamp msg.TimeStamp) *cav.DestinationRequest {
@@ -61,8 +66,13 @@ func (r *RobotStatus) NewDestRequest(dest *cav.Point, stamp msg.TimeStamp) *cav.
 	req.Origin = r.Ros.Orgin
 	req.Current = r.Point
 	req.Destination = dest
-	req.Stamp = CavStamp(stamp)
+	req.Ts = timestamppb.New(time.Unix(int64(stamp.Secs), int64(stamp.Nsecs)))
 	return req
+}
+
+func (r *RobotStatus) NewPoseMessage(pose msg.ROS_PoseStamped) *cav.Position {
+	p := new(cav.Position)
+	return p
 }
 
 func (r *RobotStatus) UpdatePose(rcd *sxmqtt.MQTTRecord) {
