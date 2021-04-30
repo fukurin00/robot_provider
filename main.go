@@ -77,27 +77,13 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 					log.Printf("robot %d not exist", id)
 				}
 			} else if strings.HasPrefix(rcd.Topic, "robot/pose") {
-				var pose msg.ROS_PoseStamped
 				var id int
 
-				err := json.Unmarshal(rcd.Record, &pose)
-				if err != nil {
-					log.Print(err)
-				}
 				fmt.Sscanf(rcd.Topic, "robot/pose/%d", &id)
 				if _, ok := robotList[id]; !ok {
 					robotList[id] = robot.NewRobot(id)
 				}
-				// pmsg := robotList[id].NewPoseMessage(pose)
-				// out, err = proto.Marshal(pmsg)
-				// if err != nil {
-				// 	log.Print(err)
-				// }
-				// _, err = synerexConfig.NotifySupply(out, synerex.MQTT_GATEWAY_SVC, "PoseSupply")
-				// if err != nil {
-				// 	log.Print(err)
-				// 	synerexConfig.ReconnectClient(clt)
-				// }
+				robotList[id].UpdatePose(rcd)
 			}
 		}
 	}
@@ -105,6 +91,17 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 
 func main() {
 	robotList = make(map[int]*robot.RobotStatus)
+
+	robotList[1] = robot.NewRobot(1)
+	robot1 := robotList[1]
+	robot1.Radius = 0.3
+	robotList[2] = robot.NewRobot(2)
+	robot2 := robotList[2]
+	robot2.Radius = 0.3
+	robotList[3] = robot.NewRobot(3)
+	robot3 := robotList[3]
+	robot3.Radius = 0.25
+
 	wg := sync.WaitGroup{}
 	flag.Parse()
 	client = mqttApi.ConnectMqttBroker(*broker, *port, connectHandler, connectLostHandler, messagePubHandler)

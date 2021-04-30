@@ -23,9 +23,9 @@ type RosMeta struct {
 }
 
 type RobotStatus struct {
-	Ros       RosMeta //meta information in ROS
-	PoseStamp msg.ROS_PoseStamped
-	Point     *cav.Point
+	Ros   RosMeta //meta information in ROS
+	Pose  msg.Pose
+	Point *cav.Point
 
 	Radius      float64
 	Velocity    float64
@@ -44,7 +44,7 @@ func NewRobot(id int) *RobotStatus {
 	r.Ros.Orgin = new(cav.Point)
 	r.Ros.Orgin.X = 0
 	r.Ros.Orgin.Y = 0
-	r.Radius = 1
+	r.Radius = 0.5
 	r.Velocity = 1.0
 	r.RotVelocity = 1.0
 	r.Update = time.Now()
@@ -76,14 +76,16 @@ func (r *RobotStatus) NewPoseMessage(pose msg.ROS_PoseStamped) *cav.Position {
 }
 
 func (r *RobotStatus) UpdatePose(rcd *sxmqtt.MQTTRecord) {
-	var pose msg.ROS_PoseStamped
-	var id uint32
-
-	err := json.Unmarshal(rcd.Record, &pose)
+	var odom msg.Odometry
+	err := json.Unmarshal(rcd.Record, &odom)
 	if err != nil {
 		log.Print(err)
 	}
+
+	var pose msg.Pose = odom.Pose.Pose
+	var id uint32
+
 	fmt.Sscanf(rcd.Topic, "robot/pose/%d", &id)
-	r.PoseStamp = pose
-	r.Point = &cav.Point{X: float32(pose.Pose.Position.X), Y: float32(pose.Pose.Position.Y)}
+	r.Pose = pose
+	r.Point = &cav.Point{X: float32(pose.Position.X), Y: float32(pose.Position.Y)}
 }
