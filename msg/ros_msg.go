@@ -79,3 +79,30 @@ type Path struct {
 	Header ROS_header        `json:"header"`
 	Poses  []ROS_PoseStamped `json:"poses"`
 }
+
+type Odometry struct {
+	Header         ROS_header          `json:"header"`
+	Child_Frame_ID string              `json:"child_frame_id"`
+	Pose           PoseWithCovariance  `json:"pose"`
+	Twist          TwistWithCovariance `json:"twist"`
+}
+
+type PoseWithCovariance struct {
+	Pose       Pose        `json:"pose"`
+	Covariance [36]float64 `json:"covariance"`
+}
+
+type Vector3 struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
+}
+type Twist struct {
+	Linear  Vector3 `json:"linear"`
+	Angular Vector3 `json:"angular"`
+}
+
+type TwistWithCovariance struct {
+	Twist      Twist       `json:"twist"`
+	Covariance [36]float64 `json:"covariance"`
+}
