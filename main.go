@@ -1,33 +1,44 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	synerex "github.com/fukurin00/provider_api"
+	// synerex "github.com/fukurin00/provider_api"
 	mqttApi "github.com/fukurin00/provider_robot_node/mqtt"
 	msg "github.com/fukurin00/provider_robot_node/msg"
 	robot "github.com/fukurin00/provider_robot_node/robot"
 
 	sxmqtt "github.com/synerex/proto_mqtt"
 	api "github.com/synerex/synerex_api"
+	pbase "github.com/synerex/synerex_proto"
 	sxutil "github.com/synerex/synerex_sxutil"
 	"google.golang.org/protobuf/proto"
 )
 
 var (
-	broker  *string = flag.String("mqtt", "127.0.0.1", "mqtt broker address")
-	port    *int    = flag.Int("port", 1883, "mqtt broker port")
-	client  *mqtt.Client
+	broker     *string = flag.String("mqtt", "127.0.0.1", "mqtt broker address")
+	port       *int    = flag.Int("port", 1883, "mqtt broker port")
+	mqttClient *mqtt.Client
+
+	nodesrv      = flag.String("nodesrv", "127.0.0.1:9990", "node serv address")
 	robotID *int = flag.Int("robotID", 1, "robotID")
 
-	robotList     map[int]*robot.RobotStatus
-	synerexConfig *synerex.SynerexConfig
+	mu sync.Mutex
+
+	syMqttClient *sxutil.SXServiceClient
+	routeClient  *sxutil.SXServiceClient
+
+	robotList       map[int]*robot.RobotStatus
+	sxServerAddress string
+	// synerexConfig *synerex.SynerexConfig
 )
 
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
@@ -68,10 +79,15 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 					if err != nil {
 						log.Print(err)
 					}
-					_, err = synerexConfig.NotifySupply(out, synerex.ROUTING_SERVICE, "DestDemand")
+					cout := api.Content{Entity: out}
+					smo := sxutil.SupplyOpts{
+						Name:  "robotRoute",
+						Cdata: &cout,
+					}
+					_, err = routeClient.NotifySupply(&smo)
 					if err != nil {
 						log.Print(err)
-						synerexConfig.ReconnectClient(clt)
+						reconnectClient(clt)
 					}
 				} else {
 					log.Printf("robot %d not exist", id)
@@ -84,8 +100,52 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 					robotList[id] = robot.NewRobot(id)
 				}
 				robotList[id].UpdatePose(rcd)
+
+				var pose msg.Pose
+				var odom msg.Odometry
+				err := json.Unmarshal(rcd.Record, &odom)
+				pose = odom.Pose.Pose
+				out := robotList[id].NewPoseMQTT(pose)
+				sout, err := proto.Marshal(out)
+				cout := api.Content{Entity: sout}
+				smo := sxutil.SupplyOpts{
+					Name:  "robotRoute",
+					Cdata: &cout,
+				}
+				_, err = syMqttClient.NotifySupply(&smo)
+				if err != nil {
+					log.Print(err)
+					reconnectClient(clt)
+				}
 			}
 		}
+	}
+}
+
+func reconnectClient(client *sxutil.SXServiceClient) {
+	mu.Lock()
+	if client.SXClient != nil {
+		client.SXClient = nil
+		log.Printf("Client reset \n")
+	}
+	mu.Unlock()
+	time.Sleep(5 * time.Second) // wait 5 seconds to reconnect
+	mu.Lock()
+	if client.SXClient == nil {
+		newClt := sxutil.GrpcConnectServer(sxServerAddress)
+		if newClt != nil {
+			// log.Printf("Reconnect server [%s]\n", s.SxServerAddress)
+			client.SXClient = newClt
+		}
+	}
+	mu.Unlock()
+}
+
+func subsclibeMQTTSupply(client *sxutil.SXServiceClient) {
+	ctx := context.Background()
+	for {
+		client.SubscribeSupply(ctx, mqttCallback)
+		reconnectClient(client)
 	}
 }
 
@@ -102,16 +162,30 @@ func main() {
 	robot3 := robotList[3]
 	robot3.Radius = 0.25
 
+	go sxutil.HandleSigInt()
 	wg := sync.WaitGroup{}
 	flag.Parse()
-	client = mqttApi.ConnectMqttBroker(*broker, *port, connectHandler, connectLostHandler, messagePubHandler)
-	channels := []uint32{synerex.MQTT_GATEWAY_SVC, synerex.ROUTING_SERVICE}
-	names := []string{"ROBOT_MQTT", "ROBOT_ROUTING"}
-	synerexConfig, err := synerex.NewSynerexConfig("RobotNode", channels, names)
+	sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
+
+	mqttClient = mqttApi.ConnectMqttBroker(*broker, *port, connectHandler, connectLostHandler, messagePubHandler)
+	channels := []uint32{pbase.MQTT_GATEWAY_SVC, pbase.ROUTING_SERVICE}
+	srv, err := sxutil.RegisterNode(*nodesrv, "RobotProvider", channels, nil)
 	if err != nil {
-		log.Print(err)
+		log.Fatal("can not registar node")
 	}
-	synerexConfig.SubscribeSupply(synerex.MQTT_GATEWAY_SVC, mqttCallback)
+	log.Printf("connectiong server [%s]", srv)
+
+	sxServerAddress = srv
+
+	synerexClient := sxutil.GrpcConnectServer(srv)
+	argJson1 := fmt.Sprintf("{Client: RobotMQTT}")
+	syMqttClient = sxutil.NewSXServiceClient(synerexClient, pbase.MQTT_GATEWAY_SVC, argJson1)
+	argJson2 := fmt.Sprintf("{Client: RobotRoute}")
+	routeClient = sxutil.NewSXServiceClient(synerexClient, pbase.ROUTING_SERVICE, argJson2)
+	// names := []string{"ROBOT_MQTT", "ROBOT_ROUTING"
+
+	go subsclibeMQTTSupply(syMqttClient)
+
 	wg.Add(1)
 	wg.Wait()
 }

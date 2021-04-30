@@ -75,6 +75,19 @@ func (r *RobotStatus) NewPoseMessage(pose msg.ROS_PoseStamped) *cav.Position {
 	return p
 }
 
+func (r *RobotStatus) NewPoseMQTT(pose msg.Pose) *sxmqtt.MQTTRecord {
+	topic := fmt.Sprintf("robot/pos/%d", r.Ros.ID)
+	jout, err := json.Marshal(&pose)
+	if err != nil {
+		log.Print(err)
+	}
+	out := sxmqtt.MQTTRecord{
+		Topic:  topic,
+		Record: jout,
+	}
+	return &out
+}
+
 func (r *RobotStatus) UpdatePose(rcd *sxmqtt.MQTTRecord) {
 	var odom msg.Odometry
 	err := json.Unmarshal(rcd.Record, &odom)
