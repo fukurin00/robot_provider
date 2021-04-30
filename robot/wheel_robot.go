@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	msg "github.com/fukurin00/provider_robot_node/msg"
+	msg "github.com/fukurin00/robot_provider/msg"
 	cav "github.com/synerex/proto_cav"
 	sxmqtt "github.com/synerex/proto_mqtt"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -76,7 +76,7 @@ func (r *RobotStatus) NewPoseMessage(pose msg.ROS_PoseStamped) *cav.Position {
 }
 
 func (r *RobotStatus) NewPoseMQTT(pose msg.Pose) *sxmqtt.MQTTRecord {
-	topic := fmt.Sprintf("robot/pos/%d", r.Ros.ID)
+	topic := fmt.Sprintf("robot/position/%d", r.Ros.ID)
 	jout, err := json.Marshal(&pose)
 	if err != nil {
 		log.Print(err)

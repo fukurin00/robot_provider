@@ -12,9 +12,9 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	// synerex "github.com/fukurin00/provider_api"
-	mqttApi "github.com/fukurin00/provider_robot_node/mqtt"
-	msg "github.com/fukurin00/provider_robot_node/msg"
-	robot "github.com/fukurin00/provider_robot_node/robot"
+	mqttApi "github.com/fukurin00/robot_provider/mqtt"
+	msg "github.com/fukurin00/robot_provider/msg"
+	robot "github.com/fukurin00/robot_provider/robot"
 
 	sxmqtt "github.com/synerex/proto_mqtt"
 	api "github.com/synerex/synerex_api"
@@ -81,14 +81,17 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 					}
 					cout := api.Content{Entity: out}
 					smo := sxutil.SupplyOpts{
-						Name:  "robotRoute",
+						Name:  "DestDemand",
 						Cdata: &cout,
 					}
 					_, err = routeClient.NotifySupply(&smo)
 					if err != nil {
 						log.Print(err)
 						reconnectClient(clt)
+					} else {
+						log.Printf("send dest request %d", id)
 					}
+
 				} else {
 					log.Printf("robot %d not exist", id)
 				}
@@ -109,7 +112,7 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				sout, err := proto.Marshal(out)
 				cout := api.Content{Entity: sout}
 				smo := sxutil.SupplyOpts{
-					Name:  "robotRoute",
+					Name:  "robotPosition",
 					Cdata: &cout,
 				}
 				_, err = syMqttClient.NotifySupply(&smo)
