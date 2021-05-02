@@ -187,6 +187,7 @@ func main() {
 	routeClient = sxutil.NewSXServiceClient(synerexClient, pbase.ROUTING_SERVICE, argJson2)
 	// names := []string{"ROBOT_MQTT", "ROBOT_ROUTING"
 
+	log.Print("start subscribing")
 	go subsclibeMQTTSupply(syMqttClient)
 
 	wg.Add(1)
