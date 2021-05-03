@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -89,7 +91,7 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 						log.Print(err)
 						reconnectClient(clt)
 					} else {
-						log.Printf("send dest request %d", id)
+						log.Printf("send dest request robot%d from (%f, %f) to (%f, %f)", id, d.Current.X, d.Current.Y, d.Destination.X, d.Destination.Y)
 					}
 
 				} else {
@@ -152,7 +154,18 @@ func subsclibeMQTTSupply(client *sxutil.SXServiceClient) {
 	}
 }
 
+func LoggingSettings(logFile string) {
+	logfile, _ := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	multiLogFile := io.MultiWriter(os.Stdout, logfile)
+	log.SetFlags(log.Ldate | log.Ltime)
+	log.SetOutput(multiLogFile)
+}
+
 func main() {
+	//logging configuration
+	now := time.Now()
+	LoggingSettings("log/" + now.Format("2006-01-02-15") + ".log")
+
 	robotList = make(map[int]*robot.RobotStatus)
 
 	robotList[1] = robot.NewRobot(1)
