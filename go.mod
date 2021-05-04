@@ -12,7 +12,7 @@ require (
 	github.com/synerex/proto_json v0.0.1 // indirect
 	github.com/synerex/proto_mqtt v0.1.2
 	github.com/synerex/synerex_api v0.4.2
-	github.com/synerex/synerex_proto v0.1.12 // indirect
+	github.com/synerex/synerex_proto v0.1.12
 	github.com/synerex/synerex_sxutil v0.6.2
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 // indirect

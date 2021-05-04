@@ -26,8 +26,10 @@ import (
 )
 
 var (
-	broker     *string = flag.String("mqtt", "127.0.0.1", "mqtt broker address")
-	port       *int    = flag.Int("port", 1883, "mqtt broker port")
+	broker  *string = flag.String("mqtt", "127.0.0.1", "mqtt broker address")
+	port    *int    = flag.Int("port", 1883, "mqtt broker port")
+	pubPose *bool   = flag.Bool("pubPose", false, "publish pose for objmap")
+
 	mqttClient *mqtt.Client
 
 	nodesrv      = flag.String("nodesrv", "127.0.0.1:9990", "node serv address")
@@ -106,21 +108,23 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				}
 				robotList[id].UpdatePose(rcd)
 
-				var pose msg.Pose
-				var odom msg.Odometry
-				err := json.Unmarshal(rcd.Record, &odom)
-				pose = odom.Pose.Pose
-				out := robotList[id].NewPoseMQTT(pose)
-				sout, err := proto.Marshal(out)
-				cout := api.Content{Entity: sout}
-				smo := sxutil.SupplyOpts{
-					Name:  "robotPosition",
-					Cdata: &cout,
-				}
-				_, err = syMqttClient.NotifySupply(&smo)
-				if err != nil {
-					log.Print(err)
-					reconnectClient(clt)
+				if *pubPose {
+					var pose msg.Pose
+					var odom msg.Odometry
+					err := json.Unmarshal(rcd.Record, &odom)
+					pose = odom.Pose.Pose
+					out := robotList[id].NewPoseMQTT(pose)
+					sout, err := proto.Marshal(out)
+					cout := api.Content{Entity: sout}
+					smo := sxutil.SupplyOpts{
+						Name:  "robotPosition",
+						Cdata: &cout,
+					}
+					_, err = syMqttClient.NotifySupply(&smo)
+					if err != nil {
+						log.Print(err)
+						reconnectClient(clt)
+					}
 				}
 			}
 		}
@@ -176,7 +180,7 @@ func main() {
 	robot2.Radius = 0.3
 	robotList[3] = robot.NewRobot(3)
 	robot3 := robotList[3]
-	robot3.Radius = 0.25
+	robot3.Radius = 0.3
 
 	go sxutil.HandleSigInt()
 	wg := sync.WaitGroup{}
