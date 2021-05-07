@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"time"
 
 	msg "github.com/fukurin00/robot_provider/msg"
@@ -27,6 +28,11 @@ type RobotStatus struct {
 	Pose  msg.Pose
 	Point *cav.Point
 
+	Dest       *cav.Point
+	DestId     int
+	HaveDest   bool
+	DestUpdate time.Time
+
 	Radius      float64
 	Velocity    float64
 	RotVelocity float64 //velocity of rotation
@@ -47,7 +53,9 @@ func NewRobot(id int) *RobotStatus {
 	r.Radius = 0.5
 	r.Velocity = 1.0
 	r.RotVelocity = 1.0
+	r.HaveDest = false
 	r.Update = time.Now()
+	r.DestUpdate = time.Now()
 	return r
 }
 
@@ -58,7 +66,20 @@ func CavPoint(poseStamp msg.ROS_PoseStamped) *cav.Point {
 	return p
 }
 
+func NewCavPoint(x, y float64) *cav.Point {
+	p := new(cav.Point)
+	p.X = float32(x)
+	p.Y = float32(y)
+	return p
+}
+
 func (r *RobotStatus) NewDestRequest(dest *cav.Point, stamp msg.TimeStamp) *cav.DestinationRequest {
+	if r.Point == nil {
+		log.Printf("not recieve robot%d pose", r.Ros.ID)
+		return nil
+	}
+	r.Dest = dest
+	r.HaveDest = true
 	req := new(cav.DestinationRequest)
 	req.RobotId = int64(r.Ros.ID)
 	r.RequestSeq += 1
@@ -67,6 +88,7 @@ func (r *RobotStatus) NewDestRequest(dest *cav.Point, stamp msg.TimeStamp) *cav.
 	req.Current = r.Point
 	req.Destination = dest
 	req.Ts = timestamppb.New(time.Unix(int64(stamp.Secs), int64(stamp.Nsecs)))
+	r.DestUpdate = time.Now()
 	return req
 }
 
@@ -101,4 +123,18 @@ func (r *RobotStatus) UpdatePose(rcd *sxmqtt.MQTTRecord) {
 	fmt.Sscanf(rcd.Topic, "robot/pose/%d", &id)
 	r.Pose = pose
 	r.Point = &cav.Point{X: float32(pose.Position.X), Y: float32(pose.Position.Y)}
+}
+
+func (r *RobotStatus) IsArriveDest(arriveThresh float64) bool {
+	if !r.HaveDest {
+		return false
+	}
+	if distance(r.Dest, r.Point) <= arriveThresh {
+		return true
+	}
+	return false
+}
+
+func distance(c, d *cav.Point) float64 {
+	return math.Hypot(float64(c.X)-float64(d.X), float64(c.Y)-float64(d.Y))
 }

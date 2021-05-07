@@ -7,17 +7,18 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	// synerex "github.com/fukurin00/provider_api"
 
 	msg "github.com/fukurin00/robot_provider/msg"
 	robot "github.com/fukurin00/robot_provider/robot"
 
+	cav "github.com/synerex/proto_cav"
 	sxmqtt "github.com/synerex/proto_mqtt"
 	api "github.com/synerex/synerex_api"
 	pbase "github.com/synerex/synerex_proto"
@@ -26,14 +27,15 @@ import (
 )
 
 var (
-	broker  *string = flag.String("mqtt", "127.0.0.1", "mqtt broker address")
-	port    *int    = flag.Int("port", 1883, "mqtt broker port")
-	pubPose *bool   = flag.Bool("pubPose", true, "publish pose for objmap")
+	// broker     *string = flag.String("mqtt", "127.0.0.1", "mqtt broker address")
+	// port       *int    = flag.Int("port", 1883, "mqtt broker port")
+	pubPose    *bool = flag.Bool("pubPose", false, "publish pose for objmap")
+	randomDest *bool = flag.Bool("randomDest", false, "random publish dest")
 
-	mqttClient *mqtt.Client
+	//mqttClient *mqtt.Client
 
-	nodesrv      = flag.String("nodesrv", "127.0.0.1:9990", "node serv address")
-	robotID *int = flag.Int("robotID", 1, "robotID")
+	nodesrv = flag.String("nodesrv", "127.0.0.1:9990", "node serv address")
+	// robotID *int = flag.Int("robotID", 1, "robotID")
 
 	mu sync.Mutex
 
@@ -42,19 +44,85 @@ var (
 
 	robotList       map[int]*robot.RobotStatus
 	sxServerAddress string
-	// synerexConfig *synerex.SynerexConfig
+
+	destList = [9][2]float64{{4, 0}, {11, 7}, {26, 6}, {23, -4}, {13, 14.5}, {6, 12}, {6, -2}, {22, 4}, {15, 7}}
+	dests    map[int]*cav.Point
+	//occupiedDest = []int{0, 2, 5, 4}
+	freeDest     = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	arriveThresh = 2.5
+
+	destRobot = 0
 )
 
-var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	log.Printf("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
+func init() {
+	dests = make(map[int]*cav.Point)
+
+	for i, d := range destList {
+		dests[i] = robot.NewCavPoint(d[0], d[1])
+	}
+
 }
 
-var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
-	log.Print("MQTT Connected")
-}
+// var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+// 	log.Printf("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
+// }
 
-var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
-	log.Printf("MQTT Connect lost: %v", err)
+// var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
+// 	log.Print("MQTT Connected")
+// }
+
+// var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
+// 	log.Printf("MQTT Connect lost: %v", err)
+// }
+func randomDestManager() {
+	timer := time.NewTicker(3 * time.Second)
+	time.Sleep(3 * time.Second)
+	for {
+		select {
+		case <-timer.C:
+			destRobot += 1
+			if destRobot > 5 {
+				destRobot = 1
+			}
+			if _, ok := robotList[destRobot]; ok {
+				robot := robotList[destRobot]
+				id := robot.Ros.ID
+				if robot.IsArriveDest(arriveThresh) && time.Since(robot.DestUpdate).Seconds() > 10 || !robot.HaveDest {
+					rand := rand.Intn(len(freeDest) - 1)
+					var r *cav.Point
+					if v, ok := dests[rand]; !ok {
+						r = &cav.Point{X: 0, Y: 0}
+					} else {
+						r = v
+					}
+					freeDest = append(freeDest[:rand], freeDest[rand+1:]...)
+					if robot.HaveDest {
+						freeDest = append(freeDest, robot.DestId)
+					}
+					robot.DestId = rand
+					d := robot.NewDestRequest(r, msg.CalcStamp(time.Now()))
+					if d != nil {
+						out, err := proto.Marshal(d)
+						if err != nil {
+							log.Print(err)
+						}
+						cout := api.Content{Entity: out}
+						smo := sxutil.SupplyOpts{
+							Name:  "DestDemand",
+							Cdata: &cout,
+						}
+						_, err = routeClient.NotifySupply(&smo)
+						if err != nil {
+							log.Print(err)
+							reconnectClient(syMqttClient)
+						} else {
+							log.Printf("send dest request robot%d from (%f, %f) to (%f, %f)", id, d.Current.X, d.Current.Y, d.Destination.X, d.Destination.Y)
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
@@ -79,6 +147,9 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 
 				if rob, ok := robotList[id]; ok {
 					d := rob.NewDestRequest(robot.CavPoint(p), p.Header.Stamp)
+					if d == nil {
+						return
+					}
 					out, err := proto.Marshal(d)
 					if err != nil {
 						log.Print(err)
@@ -106,7 +177,8 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				if _, ok := robotList[id]; !ok {
 					robotList[id] = robot.NewRobot(id)
 				}
-				robotList[id].UpdatePose(&rcd)
+				robot := robotList[id]
+				robot.UpdatePose(&rcd)
 
 				if *pubPose {
 					var pose msg.Pose
@@ -212,6 +284,9 @@ func main() {
 
 	log.Print("start subscribing")
 	go subsclibeMQTTSupply(syMqttClient)
+	if *randomDest {
+		go randomDestManager()
+	}
 
 	wg.Add(1)
 	wg.Wait()
