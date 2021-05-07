@@ -63,8 +63,8 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		// ignore my message.
 		return
 	}
-	rcd := &sxmqtt.MQTTRecord{}
-	err := proto.Unmarshal(sp.Cdata.Entity, rcd)
+	rcd := sxmqtt.MQTTRecord{}
+	err := proto.Unmarshal(sp.Cdata.Entity, &rcd)
 	if err == nil {
 		if strings.HasPrefix(rcd.Topic, "robot/") {
 			if strings.HasPrefix(rcd.Topic, "robot/dest") {
@@ -106,15 +106,21 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 				if _, ok := robotList[id]; !ok {
 					robotList[id] = robot.NewRobot(id)
 				}
-				robotList[id].UpdatePose(rcd)
+				robotList[id].UpdatePose(&rcd)
 
 				if *pubPose {
 					var pose msg.Pose
 					var odom msg.Odometry
 					err := json.Unmarshal(rcd.Record, &odom)
+					if err != nil {
+						log.Print(err)
+					}
 					pose = odom.Pose.Pose
 					out := robotList[id].NewPoseMQTT(pose)
 					sout, err := proto.Marshal(out)
+					if err != nil {
+						log.Print(sout)
+					}
 					cout := api.Content{Entity: sout}
 					smo := sxutil.SupplyOpts{
 						Name:  "robotPosition",

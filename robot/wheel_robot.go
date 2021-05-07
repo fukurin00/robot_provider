@@ -77,7 +77,7 @@ func (r *RobotStatus) NewPoseMessage(pose msg.ROS_PoseStamped) *cav.Position {
 
 func (r *RobotStatus) NewPoseMQTT(pose msg.Pose) *sxmqtt.MQTTRecord {
 	topic := fmt.Sprintf("robot/position/%d", r.Ros.ID)
-	jout, err := json.Marshal(&pose)
+	jout, err := json.Marshal(pose)
 	if err != nil {
 		log.Print(err)
 	}
