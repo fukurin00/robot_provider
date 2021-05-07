@@ -14,7 +14,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	// synerex "github.com/fukurin00/provider_api"
-	mqttApi "github.com/fukurin00/robot_provider/mqtt"
+
 	msg "github.com/fukurin00/robot_provider/msg"
 	robot "github.com/fukurin00/robot_provider/robot"
 
@@ -28,7 +28,7 @@ import (
 var (
 	broker  *string = flag.String("mqtt", "127.0.0.1", "mqtt broker address")
 	port    *int    = flag.Int("port", 1883, "mqtt broker port")
-	pubPose *bool   = flag.Bool("pubPose", false, "publish pose for objmap")
+	pubPose *bool   = flag.Bool("pubPose", true, "publish pose for objmap")
 
 	mqttClient *mqtt.Client
 
@@ -187,7 +187,7 @@ func main() {
 	flag.Parse()
 	sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
 
-	mqttClient = mqttApi.ConnectMqttBroker(*broker, *port, connectHandler, connectLostHandler, messagePubHandler)
+	//mqttClient = mqttApi.ConnectMqttBroker(*broker, *port, connectHandler, connectLostHandler, messagePubHandler)
 	channels := []uint32{pbase.MQTT_GATEWAY_SVC, pbase.ROUTING_SERVICE}
 	srv, err := sxutil.RegisterNode(*nodesrv, "RobotProvider", channels, nil)
 	if err != nil {
