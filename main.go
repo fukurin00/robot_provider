@@ -29,7 +29,7 @@ import (
 var (
 	// broker     *string = flag.String("mqtt", "127.0.0.1", "mqtt broker address")
 	// port       *int    = flag.Int("port", 1883, "mqtt broker port")
-	pubPose    *bool = flag.Bool("pubPose", false, "publish pose for objmap")
+	pubPose    *bool = flag.Bool("pubPose", true, "publish pose for objmap")
 	randomDest *bool = flag.Bool("randomDest", false, "random publish dest")
 
 	//mqttClient *mqtt.Client
@@ -45,10 +45,12 @@ var (
 	robotList       map[int]*robot.RobotStatus
 	sxServerAddress string
 
-	destList = [9][2]float64{{4, 0}, {11, 7}, {26, 6}, {23, -4}, {13, 14.5}, {6, 12}, {6, -2}, {22, 4}, {15, 7}}
+	//destList = [9][2]float64{{4, 0}, {11, 7}, {26, 6}, {23, -4}, {13, 14.5}, {6, 12}, {6, -2}, {22, 4}, {15, 7}}
+	destList = [9][2]float64{{-2, 0}, {6, 0}, {22, 5}, {31, 4}, {25, -5}, {25.5, -10}, {10, -15}, {21, -23}, {-6, -26}}
 	dests    map[int]*cav.Point
 	//occupiedDest = []int{0, 2, 5, 4}
-	freeDest     = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	//freeDest     = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	freeDest     []int
 	arriveThresh = 2.5
 
 	destRobot = 0
@@ -59,6 +61,7 @@ func init() {
 
 	for i, d := range destList {
 		dests[i] = robot.NewCavPoint(d[0], d[1])
+		freeDest = append(freeDest, i)
 	}
 
 }
@@ -87,19 +90,24 @@ func randomDestManager() {
 			if _, ok := robotList[destRobot]; ok {
 				robot := robotList[destRobot]
 				id := robot.Ros.ID
-				if robot.IsArriveDest(arriveThresh) && time.Since(robot.DestUpdate).Seconds() > 10 || !robot.HaveDest {
-					rand := rand.Intn(len(freeDest) - 1)
+				if robot.IsArriveDest(arriveThresh) || time.Since(robot.DestUpdate).Seconds() > 40 || !robot.HaveDest {
+					var randnum int
+					if len(freeDest) == 0 {
+						randnum = 0
+					} else {
+						randnum = rand.Intn(len(freeDest) - 1)
+					}
 					var r *cav.Point
-					if v, ok := dests[rand]; !ok {
+					if v, ok := dests[randnum]; !ok {
 						r = &cav.Point{X: 0, Y: 0}
 					} else {
 						r = v
 					}
-					freeDest = append(freeDest[:rand], freeDest[rand+1:]...)
+					freeDest = append(freeDest[:randnum], freeDest[randnum+1:]...)
 					if robot.HaveDest {
 						freeDest = append(freeDest, robot.DestId)
 					}
-					robot.DestId = rand
+					robot.DestId = randnum
 					d := robot.NewDestRequest(r, msg.CalcStamp(time.Now()))
 					if d != nil {
 						out, err := proto.Marshal(d)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
 	"time"
 
 	msg "github.com/fukurin00/robot_provider/msg"
@@ -23,15 +24,23 @@ type RosMeta struct {
 	UpdateStamp msg.TimeStamp
 }
 
-type RobotStatus struct {
-	Ros   RosMeta //meta information in ROS
-	Pose  msg.Pose
-	Point *cav.Point
+type PoseInfo struct {
+	Stamp float64
+	X     float64
+	Y     float64
+}
 
-	Dest       *cav.Point
-	DestId     int
-	HaveDest   bool
-	DestUpdate time.Time
+type RobotStatus struct {
+	Ros    RosMeta //meta information in ROS
+	Pose   msg.Pose
+	Point  *cav.Point
+	Points []PoseInfo
+
+	Dest        *cav.Point
+	DestId      int
+	HaveDest    bool
+	RequestDest bool
+	DestUpdate  time.Time
 
 	Radius      float64
 	Velocity    float64
@@ -54,6 +63,7 @@ func NewRobot(id int) *RobotStatus {
 	r.Velocity = 1.0
 	r.RotVelocity = 1.0
 	r.HaveDest = false
+	r.RequestDest = false
 	r.Update = time.Now()
 	r.DestUpdate = time.Now()
 	return r
@@ -123,6 +133,15 @@ func (r *RobotStatus) UpdatePose(rcd *sxmqtt.MQTTRecord) {
 	fmt.Sscanf(rcd.Topic, "robot/pose/%d", &id)
 	r.Pose = pose
 	r.Point = &cav.Point{X: float32(pose.Position.X), Y: float32(pose.Position.Y)}
+	now := time.Now()
+	r.Points = append(r.Points, PoseInfo{Stamp: float64(now.UnixNano()) * math.Pow10(-9), X: pose.Position.X, Y: pose.Position.Y})
+	if time.Since(r.Update).Seconds() > 0.5 {
+		if len(r.Points) > 100 {
+			r.AddCsvPos(fmt.Sprintf("log/pose/robot%d_%s", id, time.Now().Format("2006-01-02-15.csv")))
+		}
+		r.Update = time.Now()
+	}
+
 }
 
 func (r *RobotStatus) IsArriveDest(arriveThresh float64) bool {
@@ -137,4 +156,18 @@ func (r *RobotStatus) IsArriveDest(arriveThresh float64) bool {
 
 func distance(c, d *cav.Point) float64 {
 	return math.Hypot(float64(c.X)-float64(d.X), float64(c.Y)-float64(d.Y))
+}
+
+func (r *RobotStatus) AddCsvPos(fname string) {
+	//log.Print(fname)
+	file, err := os.OpenFile(fname, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+	if err != nil {
+		log.Print(err)
+	}
+	for _, pos := range r.Points {
+		fmt.Fprintf(file, "%f,%f,%f\n", pos.Stamp, pos.X, pos.Y)
+	}
+
+	r.Points = nil
+	defer file.Close()
 }
