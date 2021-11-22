@@ -1,1 +1,1 @@
-docker run  -d  --network synerex-network synerex_robot-provider --nodesrv nodeserv:9990 --name robot-provider
+docker run  -d  --name robot-provider --network synerex-network synerex_robot-provider --nodesrv nodeserv:9990
