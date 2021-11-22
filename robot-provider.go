@@ -245,6 +245,12 @@ func subsclibeMQTTSupply(client *sxutil.SXServiceClient) {
 }
 
 func LoggingSettings(logFile string) {
+	if _, err := os.Stat("log/"); os.IsNotExist(err) {
+		os.Mkdir("log/", 0777)
+	}
+	if _, err := os.Stat("log/pose"); os.IsNotExist(err) {
+		os.Mkdir("log/pose", 0777)
+	}
 	logfile, _ := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	multiLogFile := io.MultiWriter(os.Stdout, logfile)
 	log.SetFlags(log.Ldate | log.Ltime)
@@ -284,9 +290,9 @@ func main() {
 	sxServerAddress = srv
 
 	synerexClient := sxutil.GrpcConnectServer(srv)
-	argJson1 := fmt.Sprintf("{Client: RobotMQTT}")
+	argJson1 := "{Client: RobotMQTT}"
 	syMqttClient = sxutil.NewSXServiceClient(synerexClient, pbase.MQTT_GATEWAY_SVC, argJson1)
-	argJson2 := fmt.Sprintf("{Client: RobotRoute}")
+	argJson2 := "{Client: RobotRoute}"
 	routeClient = sxutil.NewSXServiceClient(synerexClient, pbase.ROUTING_SERVICE, argJson2)
 	// names := []string{"ROBOT_MQTT", "ROBOT_ROUTING"
 

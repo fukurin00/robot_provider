@@ -136,6 +136,7 @@ func (r *RobotStatus) UpdatePose(rcd *sxmqtt.MQTTRecord) {
 	now := time.Now()
 	r.Points = append(r.Points, PoseInfo{Stamp: float64(now.UnixNano()) * math.Pow10(-9), X: pose.Position.X, Y: pose.Position.Y})
 	if time.Since(r.Update).Seconds() > 0.5 {
+
 		if len(r.Points) > 100 {
 			r.AddCsvPos(fmt.Sprintf("log/pose/robot%d_%s", id, time.Now().Format("2006-01-02-15.csv")))
 		}

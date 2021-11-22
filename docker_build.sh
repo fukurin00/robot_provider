@@ -1,1 +1,1 @@
-docker build -t synerex_robot-provider .
+docker build -t fukurin/robot-provider .
