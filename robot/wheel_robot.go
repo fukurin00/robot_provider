@@ -54,14 +54,10 @@ func NewRobot(id int) *RobotStatus {
 	r := new(RobotStatus)
 	r.Ros = RosMeta{}
 	r.Ros.ID = id
-	r.Ros.RobotName = fmt.Sprintf("robot%d", id)
-	r.Ros.FrameID = fmt.Sprintf("map/%s", r.Ros.RobotName)
-	r.Ros.Orgin = new(cav.Point)
-	r.Ros.Orgin.X = 0
-	r.Ros.Orgin.Y = 0
 	r.Radius = 0.5
 	r.Velocity = 1.0
 	r.RotVelocity = 1.0
+
 	r.HaveDest = false
 	r.RequestDest = false
 	r.Update = time.Now()
@@ -73,6 +69,7 @@ func CavPoint(poseStamp msg.ROS_PoseStamped) *cav.Point {
 	p := new(cav.Point)
 	p.X = float32(poseStamp.Pose.Position.X)
 	p.Y = float32(poseStamp.Pose.Position.Y)
+	p.Z = float32(poseStamp.Pose.Position.Z)
 	return p
 }
 
@@ -80,23 +77,23 @@ func NewCavPoint(x, y float64) *cav.Point {
 	p := new(cav.Point)
 	p.X = float32(x)
 	p.Y = float32(y)
+	p.Z = 0
 	return p
 }
 
-func (r *RobotStatus) NewDestRequest(dest *cav.Point, stamp msg.TimeStamp) *cav.DestinationRequest {
+func (r *RobotStatus) NewDestRequest(dest *cav.Point, stamp msg.TimeStamp) *cav.PathRequest {
 	if r.Point == nil {
 		log.Printf("not recieve robot%d pose", r.Ros.ID)
 		return nil
 	}
 	r.Dest = dest
 	r.HaveDest = true
-	req := new(cav.DestinationRequest)
+	req := new(cav.PathRequest)
 	req.RobotId = int64(r.Ros.ID)
 	r.RequestSeq += 1
 	req.Seq = r.RequestSeq
-	req.Origin = r.Ros.Orgin
-	req.Current = r.Point
-	req.Destination = dest
+	req.Start = r.Point
+	req.Goal = dest
 	req.Ts = timestamppb.New(time.Unix(int64(stamp.Secs), int64(stamp.Nsecs)))
 	r.DestUpdate = time.Now()
 	return req
@@ -132,11 +129,12 @@ func (r *RobotStatus) UpdatePose(rcd *sxmqtt.MQTTRecord) {
 
 	fmt.Sscanf(rcd.Topic, "robot/pose/%d", &id)
 	r.Pose = pose
-	r.Point = &cav.Point{X: float32(pose.Position.X), Y: float32(pose.Position.Y)}
+
+	//for log
+	r.Point = &cav.Point{X: float32(pose.Position.X), Y: float32(pose.Position.Y), Z: float32(pose.Position.Z)}
 	now := time.Now()
 	r.Points = append(r.Points, PoseInfo{Stamp: float64(now.UnixNano()) * math.Pow10(-9), X: pose.Position.X, Y: pose.Position.Y})
 	if time.Since(r.Update).Seconds() > 0.5 {
-
 		if len(r.Points) > 100 {
 			r.AddCsvPos(fmt.Sprintf("log/pose/robot%d_%s", id, time.Now().Format("2006-01-02-15.csv")))
 		}
@@ -147,7 +145,7 @@ func (r *RobotStatus) UpdatePose(rcd *sxmqtt.MQTTRecord) {
 
 func (r *RobotStatus) IsArriveDest(arriveThresh float64) bool {
 	if !r.HaveDest {
-		return false
+		return true
 	}
 	if distance(r.Dest, r.Point) <= arriveThresh {
 		return true

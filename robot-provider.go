@@ -27,15 +27,10 @@ import (
 )
 
 var (
-	// broker     *string = flag.String("mqtt", "127.0.0.1", "mqtt broker address")
-	// port       *int    = flag.Int("port", 1883, "mqtt broker port")
-	pubPose    *bool = flag.Bool("pubPose", true, "publish pose for objmap")
+	pubPose    *bool = flag.Bool("pubPose", false, "publish pose for objmap")
 	randomDest *bool = flag.Bool("randomDest", false, "random publish dest")
 
-	//mqttClient *mqtt.Client
-
 	nodesrv = flag.String("nodesrv", "127.0.0.1:9990", "node serv address")
-	// robotID *int = flag.Int("robotID", 1, "robotID")
 
 	mu sync.Mutex
 
@@ -45,11 +40,9 @@ var (
 	robotList       map[int]*robot.RobotStatus
 	sxServerAddress string
 
-	//destList = [9][2]float64{{4, 0}, {11, 7}, {26, 6}, {23, -4}, {13, 14.5}, {6, 12}, {6, -2}, {22, 4}, {15, 7}}
 	destList = [9][2]float64{{-2, 0}, {6, 0}, {22, 5}, {31, 4}, {25, -5}, {25.5, -10}, {10, -15}, {21, -23}, {-6, -26}}
 	dests    map[int]*cav.Point
-	//occupiedDest = []int{0, 2, 5, 4}
-	//freeDest     = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+
 	freeDest     []int
 	arriveThresh = 2.5
 
@@ -66,17 +59,6 @@ func init() {
 
 }
 
-// var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-// 	log.Printf("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
-// }
-
-// var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
-// 	log.Print("MQTT Connected")
-// }
-
-// var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
-// 	log.Printf("MQTT Connect lost: %v", err)
-// }
 func randomDestManager() {
 	timer := time.NewTicker(3 * time.Second)
 	time.Sleep(3 * time.Second)
@@ -124,7 +106,7 @@ func randomDestManager() {
 							log.Print(err)
 							reconnectClient(syMqttClient)
 						} else {
-							log.Printf("send dest request robot%d from (%f, %f) to (%f, %f)", id, d.Current.X, d.Current.Y, d.Destination.X, d.Destination.Y)
+							log.Printf("send dest request robot%d from (%f, %f) to (%f, %f)", id, d.Start.X, d.Start.Y, d.Goal.X, d.Goal.Y)
 						}
 					}
 				}
@@ -172,7 +154,7 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 						log.Print(err)
 						reconnectClient(clt)
 					} else {
-						log.Printf("send dest request robot%d from (%f, %f) to (%f, %f)", id, d.Current.X, d.Current.Y, d.Destination.X, d.Destination.Y)
+						log.Printf("send dest request robot%d from (%f, %f) to (%f, %f)", id, d.Start.X, d.Start.Y, d.Goal.X, d.Goal.Y)
 					}
 
 				} else {
