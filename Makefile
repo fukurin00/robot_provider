@@ -15,8 +15,8 @@ TARGET=robot-provider
 .PHONY: build 
 build: $(TARGET)
 
-robot-provider: main.go
-	$(GOBUILD) -o $(TARGET) main.go 
+robot-provider: robot-provider.go
+	$(GOBUILD) -o $(TARGET) robot-provider.go 
 
 .PHONY: clean
 clean: 
