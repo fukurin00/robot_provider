@@ -106,3 +106,15 @@ type TwistWithCovariance struct {
 	Twist      Twist       `json:"twist"`
 	Covariance [36]float64 `json:"covariance"`
 }
+
+func Yaw2Quaternion(yaw float64) Quaternion {
+	cy := math.Cos(yaw / 2)
+	sy := math.Sin(yaw / 2)
+
+	var q Quaternion
+	q.W = cy
+	q.X = 0
+	q.Y = 0
+	q.Z = sy
+	return q
+}

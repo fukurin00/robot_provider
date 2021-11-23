@@ -1,0 +1,1 @@
+docker run   --rm --name robot-provider --network synerex-network fukurin/robot-provider --nodesrv nodeserv:9990
