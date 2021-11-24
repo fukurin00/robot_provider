@@ -44,8 +44,8 @@ type RobotStatus struct {
 	Goal  *cav.Point
 	Path  *cav.Path
 
-	HaveDest    bool
 	RequestDest bool
+	HavePath    bool
 
 	Radius      float64
 	Velocity    float64
@@ -64,8 +64,9 @@ func NewRobot(id int) *RobotStatus {
 	r.Velocity = 1.0
 	r.RotVelocity = 1.0
 
-	r.HaveDest = false
+	r.HavePath = false
 	r.RequestDest = false
+
 	r.Update = time.Now()
 	return r
 }
@@ -92,7 +93,7 @@ func (r *RobotStatus) NewDestRequest(dest *cav.Point, stamp msg.TimeStamp) *cav.
 		return nil
 	}
 	r.Goal = dest
-	r.HaveDest = true
+	r.RequestDest = true
 	req := new(cav.PathRequest)
 	req.RobotId = int64(r.Ros.ID)
 	r.RequestSeq += 1
@@ -131,6 +132,12 @@ func (r *RobotStatus) UpdatePose(rcd *sxmqtt.MQTTRecord) {
 
 	r.Current = &cav.Point{X: float32(pose.Position.X), Y: float32(pose.Position.Y), Z: float32(pose.Position.Z)}
 
+	if r.HavePath {
+		if r.IsArriveDest(1) {
+			r.HavePath = false
+		}
+	}
+
 	//for log
 	r.Points = append(r.Points, PoseInfo{Stamp: time.Now().UnixNano(), X: pose.Position.X, Y: pose.Position.Y})
 	if time.Since(r.Update).Seconds() > 0.5 {
@@ -144,6 +151,8 @@ func (r *RobotStatus) UpdatePose(rcd *sxmqtt.MQTTRecord) {
 
 func (r *RobotStatus) SetPath(path *cav.Path) {
 	r.Path = path
+	r.HavePath = true
+	r.RequestDest = false
 }
 
 func SendPath(id int, msg []byte, client *sxutil.SXServiceClient) {
@@ -211,15 +220,12 @@ func MakePathMsg(route *cav.Path) ([]byte, error) {
 
 }
 
-// func (r *RobotStatus) IsArriveDest(arriveThresh float64) bool {
-// 	if !r.HaveDest {
-// 		return true
-// 	}
-// 	if distance(r.Dest, r.Point) <= arriveThresh {
-// 		return true
-// 	}
-// 	return false
-// }
+func (r *RobotStatus) IsArriveDest(arriveThresh float64) bool {
+	if distance(r.Goal, r.Current) <= arriveThresh {
+		return true
+	}
+	return false
+}
 
 func distance(c, d *cav.Point) float64 {
 	return math.Hypot(float64(c.X)-float64(d.X), float64(c.Y)-float64(d.Y))

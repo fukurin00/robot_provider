@@ -26,8 +26,7 @@ import (
 )
 
 var (
-	pubPose    *bool = flag.Bool("pubPose", false, "publish pose for objmap")
-	randomDest *bool = flag.Bool("randomDest", false, "random publish dest")
+	pubPose *bool = flag.Bool("pubPose", false, "publish pose for objmap")
 
 	nodesrv = flag.String("nodesrv", "127.0.0.1:9990", "node serv address")
 
@@ -38,8 +37,6 @@ var (
 
 	robotList       map[int]*robot.RobotStatus
 	sxServerAddress string
-
-	arriveThresh = 2.5
 )
 
 func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
@@ -67,6 +64,19 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 					if d == nil {
 						return
 					}
+
+					// stopping other robot
+					objects := []*sxcav.Point{}
+					for _, r := range robotList {
+						if r.Ros.ID == id {
+							continue
+						}
+						if !r.HavePath {
+							objects = append(objects, r.Current)
+						}
+					}
+					d.Objects = objects
+
 					out, err := proto.Marshal(d)
 					if err != nil {
 						log.Print(err)
@@ -241,9 +251,6 @@ func main() {
 	log.Print("start subscribing")
 	go subsclibeMQTTSupply(syMqttClient)
 	go subsclibeRouteSupply(routeClient)
-	if *randomDest {
-		// go randomDestManager()
-	}
 
 	wg.Add(1)
 	wg.Wait()
