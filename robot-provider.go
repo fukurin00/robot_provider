@@ -73,6 +73,8 @@ func mqttCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 						}
 						if !r.HavePath {
 							objects = append(objects, r.Current)
+						} else {
+							objects = append(objects, r.Goal)
 						}
 					}
 					d.Objects = objects
